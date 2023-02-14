@@ -1,0 +1,7 @@
+version: "3"
+services:
+  backend:
+    build:
+      context: ../tiramisu-back
+    ports:
+      - "5001:5001"
