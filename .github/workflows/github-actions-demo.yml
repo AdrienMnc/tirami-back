@@ -34,7 +34,7 @@ jobs:
 
     - name: Run ESLint
       continue-on-error: true
-      run: docker run docker-image-tiramisu-back:latest npm run lint
+      run: docker run otherkevin/docker-image-tiramisu-back:latest npm run lint
 
     - name: Run tests
-      run: docker run docker-image-tiramisu-back:latest npm test
+      run: docker run otherkevin/docker-image-tiramisu-back:latest npm test
