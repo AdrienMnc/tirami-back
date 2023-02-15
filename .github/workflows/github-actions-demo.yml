@@ -1,18 +1,31 @@
 name: Node.js Tests
 
-on: [push, pull_request]
+on: 
+  push:
+    branches: [ main ]
+  
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v3
+      with:
+          context: .
+          push: true
+          tags: my-docker-image:latest
+
     - name: Install dependencies
-      run: npm install
+      run: my-docker-image:latest npm install
+
     - name: Run ESLint
       continue-on-error: true
-      run: npm run lint
+      run: my-docker-image:latest npm run lint
+
     - name: Run tests
-      run: npm test
+      run: my-docker-image:latest npm test

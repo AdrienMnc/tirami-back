@@ -26,4 +26,6 @@ router.delete("/posts/:id", (req, res) => {
   // Code pour supprimer un article de la table `posts` en utilisant l'ID dans l'URL
 });
 
+//Un commentaire
+
 module.exports = router;
