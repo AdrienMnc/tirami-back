@@ -27,7 +27,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: docker-image-tiramisu-back:latest
+        tags: otherkevin/docker-image-tiramisu-back:latest
 
     - name: Install dependencies
       run: docker run docker-image-tiramisu-back:latest npm install
