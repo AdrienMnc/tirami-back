@@ -27,14 +27,14 @@ jobs:
       with:
         context: .
         push: true
-        tags: docker-image-tiramisu-back:latest
+        tags: docker run docker-image-tiramisu-back:latest
 
     - name: Install dependencies
-      run: docker-image-tiramisu-back:latest npm install
+      run: docker run docker-image-tiramisu-back:latest npm install
 
     - name: Run ESLint
       continue-on-error: true
-      run: docker-image-tiramisu-back:latest npm run lint
+      run: docker run docker-image-tiramisu-back:latest npm run lint
 
     - name: Run tests
-      run: docker-image-tiramisu-back:latest npm test
+      run: docker run docker-image-tiramisu-back:latest npm test
