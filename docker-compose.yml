@@ -3,5 +3,10 @@ services:
   backend:
     build:
       context: ../tiramisu-back
+    # define ports
     ports:
       - "5001:5001"
+    volumes:
+      - .:/app
+    environment:
+      - NODE_ENV=production

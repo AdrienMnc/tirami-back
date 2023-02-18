@@ -1,17 +1,18 @@
-# utilisez l'image de base node pour construire votre application Node.js
-FROM node:14
+# Utiliser une image de base node.js
+FROM node:16
 
-# définir le répertoire de travail pour notre application
+# Créer un dossier de travail
 WORKDIR /app
 
-# copier les fichiers de votre projet Node.js dans le répertoire de travail
+# Copier les fichiers du dossier local dans l'image
+COPY package*.json ./
 COPY . .
 
-# installez les dépendances de votre application Node.js
+# Installer les dépendances
 RUN npm install
 
-# exposez le port utilisé par votre application Node.js
-EXPOSE 5000
+# Exposer le port 3000 utilisé par l'application
+EXPOSE 5001
 
-# définissez la commande par défaut pour lancer votre application Node.js
-CMD ["npm", "start"]
+# Démarrer l'application avec nodemon
+CMD [ "npm", "run", "dev" ]
