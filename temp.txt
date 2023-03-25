@@ -1,0 +1,14 @@
+  dbinit:
+    image: mysql:8.0
+    command: >
+      sh -c "
+      echo 'CREATE DATABASE IF NOT EXISTS ${DB_DATABASE} ;' | mysql -h${DB_HOST} -P${DB_PORT} -u${DB_USER} -p${DB_PASSWORD};
+      echo 'GRANT ALL PRIVILEGES ON ${DB_DATABASE}.* TO ${DB_USER}@${DB_HOST} IDENTIFIED BY '''${DB_PASSWORD}''' ;' | mysql -h${DB_HOST} -P${DB_PORT} -u${DB_USER} -p${DB_PASSWORD} ;
+      "
+      depends_on:
+      - db
+      environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}

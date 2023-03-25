@@ -1,12 +1,14 @@
 const express = require("express");
 const app = express();
 
-// import routes and controllers here
+app.use(express.json());
+
+//Define controllers here
 const test = require("./routes/test");
+const inscription = require("./controllers/inscriptionController");
 
-//define routes here
+//Define routes here
 app.use("/test", test);
-
-//define controllers here
+app.use("/inscription", inscription.inscriptionController);
 
 module.exports = app;

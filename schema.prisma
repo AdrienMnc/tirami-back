@@ -1,0 +1,82 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            Int             @id @default(autoincrement())
+  email         String          @unique
+  password      String
+  red_flag      Int             @default(0)
+  created_at    DateTime        @default(now())
+  role          Role            @default(USER)
+  picture       Picture[]
+  posts         Post[]
+  following     Follow[]        @relation("Following")
+  followed_by   Follow[]        @relation("Followed_by")
+  Like          Like[]
+  My_restaurant My_restaurant[]
+}
+
+model Restaurant {
+  id            Int             @id @default(autoincrement())
+  name          String
+  id_api        String          @unique
+  My_restaurant My_restaurant[]
+}
+
+model Picture {
+  id          Int     @id @default(autoincrement())
+  url         String  @unique
+  owner       User    @relation(fields: [owner_id], references: [id])
+  owner_id    Int
+  profile_pic Boolean @default(false)
+  post        Post?   @relation("PostPictures", fields: [post_id], references: [id])
+  post_id     Int?
+}
+
+model Post {
+  id         Int       @id @default(autoincrement())
+  content    String
+  banned     Boolean   @default(false)
+  signaled   Int       @default(0)
+  created_at DateTime  @default(now())
+  author     User      @relation(fields: [author_id], references: [id])
+  author_id  Int
+  post_pics  Picture[] @relation("PostPictures")
+  Like       Like[]
+}
+
+model Follow {
+  id          Int  @id @default(autoincrement())
+  follower    User @relation("Following", fields: [follower_id], references: [id])
+  follower_id Int
+  followed    User @relation("Followed_by", fields: [followed_id], references: [id])
+  followed_id Int
+}
+
+model Like {
+  id      Int  @id @default(autoincrement())
+  user    User @relation(fields: [user_id], references: [id])
+  user_id Int
+  post    Post @relation(fields: [post_id], references: [id])
+  post_id Int
+}
+
+model My_restaurant {
+  id            Int        @id @default(autoincrement())
+  user          User       @relation(fields: [user_id], references: [id])
+  user_id       Int
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id])
+  restaurant_id Int
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODO
+}
