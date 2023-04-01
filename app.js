@@ -3,12 +3,14 @@ const app = express();
 
 app.use(express.json());
 
-//Define controllers here
+//Import des routes
 const test = require("./routes/test");
-const inscription = require("./controllers/inscriptionController");
+const userRoutes = require("./routes/userRoutes");
+const restaurantRoutes = require("./routes/restaurantRoutes");
 
-//Define routes here
+//Liste des routes
 app.use("/test", test);
-app.use("/inscription", inscription.inscriptionController);
+app.use("/user", userRoutes);
+// app.use("/restaurant", restaurantRoutes);
 
 module.exports = app;

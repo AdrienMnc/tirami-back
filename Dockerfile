@@ -14,5 +14,8 @@ RUN npm install
 # Exposer le port 5001 utilisé par l'application
 EXPOSE 5001
 
+# Lancer Prisma et faire une migration
+# RUN npx prisma migrate dev --name init
+
 # Démarrer l'application avec nodemon
 CMD [ "npm", "run", "dev" ]
