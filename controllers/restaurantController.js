@@ -1,4 +1,3 @@
-// User controller with prisma and mysql
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
@@ -22,7 +21,7 @@ module.exports = {
     const { id } = req.params;
     const comments = await prisma.comment.findMany({
       where: {
-        restaurantId: parseInt(id),
+        restaurant_id: parseInt(id),
       },
     });
     if (!comments) {

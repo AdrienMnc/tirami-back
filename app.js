@@ -5,8 +5,12 @@ app.use(express.json());
 
 //Import des routes
 const test = require("./routes/test");
+
 const userRoutes = require("./routes/userRoutes");
 const restaurantRoutes = require("./routes/restaurantRoutes");
+const postRoutes = require("./routes/postRoutes");
+const dessertRoutes = require("./routes/dessertRoutes");
+const pictureRoutes = require("./routes/pictureRoutes");
 
 //Liste des routes
 app.use("/test", test);

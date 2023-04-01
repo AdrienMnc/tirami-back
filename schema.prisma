@@ -9,26 +9,27 @@ generator client {
 }
 
 model User {
-  id            Int             @id @default(autoincrement())
-  username      String          @unique
-  email         String          @unique
-  password      String
-  red_flag      Int             @default(0)
-  created_at    DateTime        @default(now())
-  role          Role            @default(USER)
-  picture       Picture[]
-  posts         Post[]
-  following     Follow[]        @relation("Following")
-  followed_by   Follow[]        @relation("Followed_by")
-  Like          Like[]
-  My_restaurant My_restaurant[]
+  id             Int                       @id @default(autoincrement())
+  username       String                    @unique
+  email          String                    @unique
+  password       String
+  red_flag       Int                       @default(0)
+  created_at     DateTime                  @default(now())
+  role           Role                      @default(USER)
+  picture        Picture[]
+  posts          Post[]
+  following      Follow[]                  @relation("Following")
+  followed_by    Follow[]                  @relation("Followed_by")
+  Like           Like[]
+  My_restaurants My_favorite_restaurants[]
 }
 
 model Restaurant {
-  id            Int             @id @default(autoincrement())
-  name          String
-  id_api        String          @unique
-  My_restaurant My_restaurant[]
+  id             Int                       @id @default(autoincrement())
+  name           String
+  id_api         String                    @unique
+  My_restaurants My_favorite_restaurants[]
+  Post           Post[]
 }
 
 model Picture {
@@ -41,16 +42,27 @@ model Picture {
   post_id     Int?
 }
 
+model Dessert {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  type String @unique
+  Post Post[]
+}
+
 model Post {
-  id         Int       @id @default(autoincrement())
-  content    String
-  banned     Boolean   @default(false)
-  signaled   Int       @default(0)
-  created_at DateTime  @default(now())
-  author     User      @relation(fields: [author_id], references: [id])
-  author_id  Int
-  post_pics  Picture[] @relation("PostPictures")
-  Like       Like[]
+  id            Int        @id @default(autoincrement())
+  content       String
+  banned        Boolean    @default(false)
+  signaled      Int        @default(0)
+  created_at    DateTime   @default(now())
+  author        User       @relation(fields: [author_id], references: [id])
+  author_id     Int
+  post_pics     Picture[]  @relation("PostPictures")
+  Like          Like[]
+  Restaurant    Restaurant @relation(fields: [restaurant_id], references: [id])
+  restaurant_id Int
+  dessert       Dessert    @relation(fields: [dessert_id], references: [id])
+  dessert_id    Int
 }
 
 model Follow {
@@ -69,7 +81,7 @@ model Like {
   post_id Int
 }
 
-model My_restaurant {
+model My_favorite_restaurants {
   id            Int        @id @default(autoincrement())
   user          User       @relation(fields: [user_id], references: [id])
   user_id       Int

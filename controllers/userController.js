@@ -1,4 +1,3 @@
-// User controller with prisma and mysql
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
@@ -7,10 +6,11 @@ module.exports = {
   getAllUsers: async (req, res) => {
     const users = await prisma.user.findMany();
     if (!users) {
-      return res.status(400).json({ message: "No users found" });
+      return res.status(400).json({ message: "Aucun utilisateurs trouvé" });
     }
     res.status(200).json(users);
   },
+
   // Récupérer un utilisateur par ID
   getOneUser: async (req, res) => {
     const { id } = req.params;
@@ -24,6 +24,7 @@ module.exports = {
     }
     res.status(200).json(user);
   },
+
   // Créer un nouvel utilisateur
   createUser: async (req, res) => {
     const { username, email, password } = req.body;
@@ -39,6 +40,7 @@ module.exports = {
     }
     res.status(201).json({ message: "User created", user });
   },
+
   // Mettre à jour un utilisateur
   updateUser: async (req, res) => {
     const { id } = req.params;
@@ -58,6 +60,7 @@ module.exports = {
     }
     res.status(200).json({ message: "User updated", user });
   },
+
   // Supprimer un utilisateur
   deleteUser: async (req, res) => {
     const { id } = req.params;
@@ -71,6 +74,7 @@ module.exports = {
     }
     res.status(200).json({ message: "User deleted", user });
   },
+
   // Récupérer tous les posts d'un utilisateur
   getAllPostsFromUser: async (req, res) => {
     const { id } = req.params;
