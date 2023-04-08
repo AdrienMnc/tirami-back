@@ -8,6 +8,9 @@ router.get("/", userController.getAllUsers);
 // Route pour créer un nouvel utilisateur (POST)
 router.post("/", userController.createUser);
 
+// Route pour se connecter (POST)
+router.post("/login", userController.login);
+
 // Route pour récupérer un utilisateur par ID (GET)
 router.get("/:id", userController.getOneUser);
 

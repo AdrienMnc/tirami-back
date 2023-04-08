@@ -9,19 +9,20 @@ generator client {
 }
 
 model User {
-  id             Int                       @id @default(autoincrement())
-  username       String                    @unique
-  email          String                    @unique
-  password       String
-  red_flag       Int                       @default(0)
-  created_at     DateTime                  @default(now())
-  role           Role                      @default(USER)
-  picture        Picture[]
-  posts          Post[]
-  following      Follow[]                  @relation("Following")
-  followed_by    Follow[]                  @relation("Followed_by")
-  Like           Like[]
-  My_restaurants My_favorite_restaurants[]
+  id                 Int                       @id @default(autoincrement())
+  username           String                    @unique
+  email              String                    @unique
+  password           String
+  red_flag           Int                       @default(0)
+  created_at         DateTime                  @default(now())
+  role               Role                      @default(USER)
+  picture            Picture[]
+  posts              Post[]
+  following          Follow[]                  @relation("Following")
+  followed_by        Follow[]                  @relation("Followed_by")
+  Like               Like[]
+  My_restaurants     My_favorite_restaurants[]
+  allowing_followers Boolean                   @default(true)
 }
 
 model Restaurant {
