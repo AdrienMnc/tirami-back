@@ -1,5 +1,19 @@
 const jwt = require("jsonwebtoken");
 
+// Fonction pour générer un token
+function generateTokenForUser(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      role: user.role,
+    },
+    process.env.JWT_SECRET_KEY,
+    {
+      expiresIn: "1h",
+    }
+  );
+}
+
 // Fonction de récupération du token
 function getToken(req) {
   const token = req.headers.authorization;
@@ -28,4 +42,5 @@ module.exports = {
   getToken,
   getUserId,
   getUserRole,
+  generateTokenForUser,
 };

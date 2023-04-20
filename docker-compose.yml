@@ -33,12 +33,14 @@ services:
   backend:
     build:
       context: .
+      dockerfile: Dockerfile
     links:
       - db
     ports:
       - "5001:5001"
     volumes:
       - .:/app
+      - /app/node_modules
     environment:
       - NODE_ENV=production
       # sert a R marche pas tout est pris dans le schema.prisma dans tous les cas!

@@ -1,7 +1,5 @@
 // Middleware de vérification
-const jwt = require("jsonwebtoken");
 
-// require functions.js
 const { getUserId, getUserRole } = require("../functions");
 
 module.exports = {

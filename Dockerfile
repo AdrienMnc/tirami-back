@@ -1,5 +1,5 @@
 # Utiliser une image de base node.js // On était en 16 pendant le cours, mais on est passé à 18.14.2
-FROM node:18
+FROM node:18.14
 
 # Créer un dossier de travail
 WORKDIR /app

@@ -1,4 +1,5 @@
 const { PrismaClient } = require("@prisma/client");
+const { generateTokenForUser, getUserRole } = require("../functions");
 const prisma = new PrismaClient();
 const bcrypt = require("bcrypt");
 
@@ -36,9 +37,9 @@ module.exports = {
           "Password must contain at least 8 characters, one uppercase, one lowercase and one number",
       });
     }
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: {
-        email: email,
+        OR: [{ email: email }, { username: username }],
       },
     });
     if (!user) {
@@ -75,7 +76,8 @@ module.exports = {
       if (!validPassword) {
         return res.status(400).json({ message: "Invalid credentials" });
       }
-      res.status(200).json({ message: "User logged in", user });
+      const token = generateTokenForUser(user);
+      res.status(200).json({ message: "User logged in", token });
     } else {
       res.status(400).json({ message: "User not found" });
     }
@@ -101,18 +103,42 @@ module.exports = {
     res.status(200).json({ message: "User updated", user });
   },
 
-  // Supprimer un utilisateur
+  // Supprimer un utilisateur après vérification du token et du mot de passe
+
   deleteUser: async (req, res) => {
+    const loggedUserRole = getUserRole(req);
+    let deletedUser;
     const { id } = req.params;
-    const user = await prisma.user.delete({
+    const { password } = req.body;
+    const user = await prisma.user.findUnique({
       where: {
         id: parseInt(id),
       },
     });
     if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+    if (loggedUserRole == "ADMIN" || loggedUserRole == "MODO") {
+      deletedUser = await prisma.user.delete({
+        where: {
+          id: parseInt(id),
+        },
+      });
+    } else {
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(400).json({ message: "Invalid credentials" });
+      }
+      deletedUser = await prisma.user.delete({
+        where: {
+          id: parseInt(id),
+        },
+      });
+    }
+    if (!deletedUser) {
       return res.status(400).json({ message: "User not deleted" });
     }
-    res.status(200).json({ message: "User deleted", user });
+    res.status(200).json({ message: "User deleted", deletedUser });
   },
 
   // Récupérer tous les posts d'un utilisateur
