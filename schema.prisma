@@ -20,19 +20,30 @@ model User {
   posts              Post[]
   following          Follow[]               @relation("Following")
   followed_by        Follow[]               @relation("Followed_by")
-  Like               Like[]
-  My_restaurants     MyFavoriteRestaurant[]
+  like               Like[]
+  my_restaurants     MyFavoriteRestaurant[]
   allowing_followers Boolean                @default(true)
+  deactivated        Boolean                @default(false)
+  deactivated_at     DateTime?
+  verified           Boolean                @default(false)
 
   @@map("users")
+}
+
+model InvalidToken {
+  id             Int      @id @default(autoincrement())
+  token          String   @unique
+  invalidated_at DateTime @default(now())
+
+  @@map("invalid_tokens")
 }
 
 model Restaurant {
   id             Int                    @id @default(autoincrement())
   name           String
   id_api         String                 @unique
-  My_restaurants MyFavoriteRestaurant[]
-  Post           Post[]
+  my_restaurants MyFavoriteRestaurant[]
+  post           Post[]
 
   @@map("restaurants")
 }
@@ -53,25 +64,28 @@ model Dessert {
   id   Int    @id @default(autoincrement())
   name String @unique
   type String @unique
-  Post Post[]
+  post Post[]
 
   @@map("desserts")
 }
 
 model Post {
-  id            Int        @id @default(autoincrement())
-  content       String
-  banned        Boolean    @default(false)
-  signaled      Int        @default(0)
-  created_at    DateTime   @default(now())
-  author        User       @relation(fields: [author_id], references: [id])
-  author_id     Int
-  post_pics     Picture[]  @relation("PostPictures")
-  Like          Like[]
-  Restaurant    Restaurant @relation(fields: [restaurant_id], references: [id])
-  restaurant_id Int
-  dessert       Dessert    @relation(fields: [dessert_id], references: [id])
-  dessert_id    Int
+  id                 Int        @id @default(autoincrement())
+  content            String
+  banned             Boolean    @default(false)
+  signaled           Int        @default(0)
+  created_at         DateTime   @default(now())
+  author             User       @relation(fields: [author_id], references: [id])
+  author_id          Int
+  author_deactivated Boolean    @default(false)
+  post_pics          Picture[]  @relation("PostPictures")
+  like               Like[]
+  Restaurant         Restaurant @relation(fields: [restaurant_id], references: [id])
+  restaurant_id      Int
+  dessert            Dessert    @relation(fields: [dessert_id], references: [id])
+  dessert_id         Int
+  deactivated        Boolean    @default(false)
+  deactivated_at     DateTime?
 
   @@map("posts")
 }

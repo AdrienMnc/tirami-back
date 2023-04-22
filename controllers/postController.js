@@ -30,7 +30,17 @@ module.exports = {
     if (!comments) {
       return res.status(400).json({ message: "No comments found" });
     }
-    res.status(200).json(comments);
+    // Envoyer les commentaires et le nom de l'auteur
+    const commentsWithAuthor = await Promise.all(
+      comments.map(async (comment) => {
+        const author = await prisma.user.findUnique({
+          where: {
+            id: comment.author_id,
+          },
+        });
+        return { ...comment, author: author.username };
+      })
+    );
   },
 
   // Mettre à jour un commentaire
