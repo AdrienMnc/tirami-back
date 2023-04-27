@@ -6,6 +6,7 @@ const {
   checkPasswordFormat,
   generateTempToken,
   verifyTempToken,
+  comparePassword,
 } = require("../lib/functions");
 const mailer = require("../lib/mailer");
 const prisma = new PrismaClient();
@@ -125,10 +126,9 @@ module.exports = {
     if (!updatedUser) {
       return res.status(400).json({ message: "User not activated" });
     }
-    res.status(200).json({ message: "User activated" });
     // Connecter l'utilisateur et lui renvoyer un token
     const newToken = generateTokenForUser(updatedUser);
-    res.status(200).json({ message: "User logged in", newToken });
+    res.status(200).json({ message: "User activated and logged in", newToken });
   },
 
   /**
@@ -160,36 +160,47 @@ module.exports = {
    *  Mettre à jour un utilisateur
    */
   updateUser: async (req, res) => {
-    const { id } = getUserId(req);
+    const id = await getUserId(req);
     const { username, email, password, profile_pic_id } = req.body;
     // Récupérer l'utilisateur à modifier
+    console.log("VALEUR DE ID dans updateUser : ", id);
     const userToModify = await prisma.user.findUnique({
       where: {
         id: parseInt(id),
       },
     });
+    console.log("USER RECUPERE dans updateUser : ", userToModify);
+
     // Comparer le mot de passe reçu avec le hash en base de données
     if (!comparePassword(password, userToModify.password)) {
       return res.status(400).json({ message: "Invalid password" });
     }
-    // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris
+    console.log("PASSWORD CORRECT");
+    // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris ----------------------------------- C'EST ICI QUE CA BUG
     const usernameAlreadyExists = await prisma.user.findFirst({
       where: {
         username: username,
       },
     });
+    console.log("TEST DU USERNAME PASSE");
     if (usernameAlreadyExists && usernameAlreadyExists.id != id) {
       return res.status(400).json({ message: "Username already exists" });
     }
+    console.log("USERNAME DISPONIBLE");
     // Vérifier que le nouveau mail n'est pas déjà pris
-    const emailAlreadyExists = await prisma.user.findFirst({
+    const userWithThisEmail = await prisma.user.findFirst({
       where: {
         email: email,
       },
     });
-    if (emailAlreadyExists && emailAlreadyExists.id != id) {
-      return res.status(400).json({ message: "Email already exists" });
+    // Si l'utilisateur a fourni un email, vérifier qu'il n'est pas déjà pris
+    if (email) {
+      if (userWithThisEmail && userWithThisEmail.id != id) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
     }
+
+    console.log("EMAIL DISPONIBLE");
     // Vérifier que le nouveau mot de passe a un format valide
     if (!checkPasswordFormat(password)) {
       return res.status(400).json({
@@ -199,6 +210,10 @@ module.exports = {
     }
     // Mettre à jour l'utilisateur avec les nouvelles données (username, email, password)
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("VALEUR DE HASHEDPASSWORD : ", hashedPassword);
+    console.log("VALEUR DE ID dans updateUser : ", id);
+    console.log("VALEUR DE profile_pic_id dans updateUser : ", profile_pic_id);
+
     const user = await prisma.user.update({
       where: {
         id: parseInt(id),
@@ -208,28 +223,49 @@ module.exports = {
         email: email,
         password: hashedPassword,
         // Mettre à jour la photo de profil : dans la table "pictures", passer profile_pic à true pour la photo dont l'id est dans le body
-        pictures: {
-          update: {
-            where: {
-              id: parseInt(profile_pic_id),
-            },
-            data: {
-              profile_pic: true,
-            },
-          },
-        },
+        // picture: {
+        //   update: {
+        //     where: {
+        //       id: parseInt(profile_pic_id),
+        //     },
+        //     data: {
+        //       profile_pic: true,
+        //     },
+        //   },
+        // },
       },
     });
+    //Si l'utilisateur a fourni un nouveau profile_pic_id, mettre à jour le statut de la nouvelle photo de profil et de l'ancienne
+    if (profile_pic_id) {
+      const newProfilePic = await prisma.picture.update({
+        where: {
+          id: parseInt(profile_pic_id),
+        },
+        data: {
+          profile_pic: true,
+        },
+      });
+      const oldProfilePic = await prisma.picture.update({
+        where: {
+          id: parseInt(userToModify.profile_pic_id),
+        },
+        data: {
+          profile_pic: false,
+        },
+      });
+    }
+    // Si l'utilisateur n'a pas été mis à jour, renvoyer une erreur
     if (!user) {
       return res.status(400).json({ message: "User not updated" });
     }
+    // Si tout s'est bien passé, renvoyer un message de succès
     res.status(200).json({ message: "User updated", user });
   },
 
   /**
-   * Supprimer un utilisateur après vérification du token et du mot de passe
+   * Désactiver un utilisateur après vérification du token et du mot de passe
    */
-  deleteUser: async (req, res) => {
+  deactivateUser: async (req, res) => {
     const loggedUserRole = getUserRole(req);
     let deletedUser;
     const { id } = getUserId(req);
@@ -292,6 +328,10 @@ module.exports = {
     });
     res.status(200).json({ message: "User deactivated", deletedUser });
   },
+
+  /**
+   * Supprimer un utilisateur
+   */
 
   /**
    * Récupérer tous les posts d'un utilisateur

@@ -3,12 +3,9 @@
 const { getUserId, getUserRole } = require("../lib/functions");
 
 module.exports = {
-  isAuthenticated(req, res, next) {
+  async isAuthenticated(req, res, next) {
     try {
-      const userId = getUserId(req);
-      if (req.body.userId !== userId) {
-        throw "Invalid user ID";
-      }
+      await getUserId(req);
       next();
     } catch (err) {
       res.status(401).json({ message: err });
