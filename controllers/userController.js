@@ -25,28 +25,20 @@ module.exports = {
   },
 
   /**
-   * Récupérer un utilisateur par ID
+   * Récupérer un utilisateur connecté
    */
   getOneUser: async (req, res) => {
-    const loggedUserRole = getUserRole(req);
-    const { id } = getUserId(req);
+    const loggedUserRole = await getUserRole(req);
+    const id = await getUserId(req);
     const user = await prisma.user.findUnique({
       where: {
-        id: parseInt(id),
+        id: id,
       },
     });
     if (!user) {
       return res.status(400).json({ message: "No user found" });
     }
-    if (
-      loggedUserRole === "ADMIN" ||
-      loggedUserRole === "MODO" ||
-      id === getUserId(req)
-    ) {
-      res.status(200).json(user);
-    } else {
-      res.status(200).json({ username: user.username });
-    }
+    res.status(200).json(user);
   },
 
   /**
@@ -54,6 +46,12 @@ module.exports = {
    */
   createUser: async (req, res) => {
     const { username, email, password } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: "Missing parameters" });
+    }
+    if (req.body.role) {
+      return res.status(400).json({ message: "Invalid parameter given" });
+    }
     if (!checkPasswordFormat(password)) {
       return res.status(400).json({
         message:
@@ -97,8 +95,8 @@ module.exports = {
   activateUser: async (req, res) => {
     const { token } = req.params;
     // Vérifier le token
-    const { email, username } = verifyTempToken(token);
-    if (!email || !username) {
+    const { email } = verifyTempToken(token);
+    if (!email) {
       return res.status(400).json({ message: "Invalid token" });
     }
     // Vérifier si l'utilisateur existe
@@ -163,30 +161,25 @@ module.exports = {
     const id = await getUserId(req);
     const { username, email, password, profile_pic_id } = req.body;
     // Récupérer l'utilisateur à modifier
-    console.log("VALEUR DE ID dans updateUser : ", id);
     const userToModify = await prisma.user.findUnique({
       where: {
         id: parseInt(id),
       },
     });
-    console.log("USER RECUPERE dans updateUser : ", userToModify);
 
     // Comparer le mot de passe reçu avec le hash en base de données
     if (!comparePassword(password, userToModify.password)) {
       return res.status(400).json({ message: "Invalid password" });
     }
-    console.log("PASSWORD CORRECT");
-    // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris ----------------------------------- C'EST ICI QUE CA BUG
+    // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris
     const usernameAlreadyExists = await prisma.user.findFirst({
       where: {
         username: username,
       },
     });
-    console.log("TEST DU USERNAME PASSE");
     if (usernameAlreadyExists && usernameAlreadyExists.id != id) {
       return res.status(400).json({ message: "Username already exists" });
     }
-    console.log("USERNAME DISPONIBLE");
     // Vérifier que le nouveau mail n'est pas déjà pris
     const userWithThisEmail = await prisma.user.findFirst({
       where: {
@@ -200,7 +193,6 @@ module.exports = {
       }
     }
 
-    console.log("EMAIL DISPONIBLE");
     // Vérifier que le nouveau mot de passe a un format valide
     if (!checkPasswordFormat(password)) {
       return res.status(400).json({
@@ -210,9 +202,6 @@ module.exports = {
     }
     // Mettre à jour l'utilisateur avec les nouvelles données (username, email, password)
     const hashedPassword = await bcrypt.hash(password, 10);
-    console.log("VALEUR DE HASHEDPASSWORD : ", hashedPassword);
-    console.log("VALEUR DE ID dans updateUser : ", id);
-    console.log("VALEUR DE profile_pic_id dans updateUser : ", profile_pic_id);
 
     const user = await prisma.user.update({
       where: {
@@ -222,35 +211,24 @@ module.exports = {
         username: username,
         email: email,
         password: hashedPassword,
-        // Mettre à jour la photo de profil : dans la table "pictures", passer profile_pic à true pour la photo dont l'id est dans le body
-        // picture: {
-        //   update: {
-        //     where: {
-        //       id: parseInt(profile_pic_id),
-        //     },
-        //     data: {
-        //       profile_pic: true,
-        //     },
-        //   },
-        // },
       },
     });
     //Si l'utilisateur a fourni un nouveau profile_pic_id, mettre à jour le statut de la nouvelle photo de profil et de l'ancienne
     if (profile_pic_id) {
+      const oldProfilePic = await prisma.picture.update({
+        where: {
+          owner_id: parseInt(id),
+        },
+        data: {
+          profile_pic: false,
+        },
+      });
       const newProfilePic = await prisma.picture.update({
         where: {
           id: parseInt(profile_pic_id),
         },
         data: {
           profile_pic: true,
-        },
-      });
-      const oldProfilePic = await prisma.picture.update({
-        where: {
-          id: parseInt(userToModify.profile_pic_id),
-        },
-        data: {
-          profile_pic: false,
         },
       });
     }
@@ -263,12 +241,85 @@ module.exports = {
   },
 
   /**
+   * Mot de passe oublié : envoi d'un email avec un token temporaire
+   */
+  forgotPassword: async (req, res) => {
+    const { email } = req.body;
+    // Vérifier que l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+    // Si l'utilisateur existe, générer un token temporaire avec le mail de l'utilisateur
+    const token = generateTempToken(email);
+    // Try la fonction sendResetPasswordEmail pour valider la création du compte
+    try {
+      await mailer.sendResetPasswordEmail(email, token);
+    } catch (error) {
+      return res.status(400).json({ message: "Email not sent" });
+    }
+    // Si tout s'est bien passé, renvoyer un message de succès
+    res.status(200).json({ message: "Email sent" });
+  },
+
+  /**
+   * Mot de passe oublié : reset du mot de passe
+   */
+  resetPassword: async (req, res) => {
+    console.log("entré dans resetPassword");
+    const { token } = req.params;
+    // utiliser verifyTempToken pour vérifier que le token est valide
+    const { email } = verifyTempToken(token);
+    const { password } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Invalid token" });
+    }
+    // Vérifier si l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+    // Vérifier que le nouveau mot de passe a un format valide
+    if (!checkPasswordFormat(password)) {
+      return res.status(400).json({
+        message:
+          "Password must contain at least 8 characters, one uppercase, one lowercase and one number",
+      });
+    }
+    // Mettre à jour l'utilisateur avec les nouvelles données (username, email, password)
+    const hashedPassword = await bcrypt.hash(password, 10);
+    try {
+      await prisma.user.update({
+        where: {
+          email: email,
+        },
+        data: {
+          password: hashedPassword,
+        },
+      });
+    } catch (error) {
+      return res.status(400).json({ message: "Password not updated" });
+    }
+    // Si tout s'est bien passé, renvoyer un message de succès
+    res.status(200).json({ message: "Password updated" });
+  },
+
+  /**
    * Désactiver un utilisateur après vérification du token et du mot de passe
    */
   deactivateUser: async (req, res) => {
-    const loggedUserRole = getUserRole(req);
-    let deletedUser;
-    const { id } = getUserId(req);
+    const loggedUserRole = await getUserRole(req);
+    let deactivatedUser;
+    const id = await getUserId(req);
     const { password, keepContent } = req.body;
     const user = await prisma.user.findUnique({
       where: {
@@ -276,7 +327,7 @@ module.exports = {
       },
     });
     if (loggedUserRole == "ADMIN" || loggedUserRole == "MODO") {
-      deletedUser = await prisma.user.update({
+      deactivatedUser = await prisma.user.update({
         where: {
           id: parseInt(id),
         },
@@ -290,7 +341,7 @@ module.exports = {
       if (!validPassword) {
         return res.status(400).json({ message: "Invalid credentials" });
       }
-      deletedUser = await prisma.user.update({
+      deactivatedUser = await prisma.user.update({
         where: {
           id: parseInt(id),
         },
@@ -300,7 +351,7 @@ module.exports = {
         },
       });
     }
-    if (!deletedUser) {
+    if (!deactivatedUser) {
       return res.status(400).json({ message: "User not deactivated" });
     }
     if (keepContent == false) {
@@ -315,29 +366,67 @@ module.exports = {
         },
       });
     }
-    // Passer author_deactivated à true pour les commentaires des posts de l'utilisateur
-    const comments = await prisma.comment.updateMany({
-      where: {
-        post: {
-          user_id: parseInt(id),
-        },
-      },
-      data: {
-        author_deactivated: true,
-      },
-    });
-    res.status(200).json({ message: "User deactivated", deletedUser });
+    res.status(200).json({ message: "User deactivated", deactivatedUser });
   },
 
   /**
    * Supprimer un utilisateur
    */
+  deleteUser: async (req, res) => {
+    const loggedUserRole = getUserRole(req);
+    const { id } = getUserId(req);
+    const { password } = req.body;
+    const user = await prisma.user.findUnique({
+      where: {
+        id: parseInt(id),
+      },
+    });
+    if (loggedUserRole == "ADMIN" || loggedUserRole == "MODO") {
+      deletedUser = await prisma.user.delete({
+        where: {
+          id: parseInt(id),
+        },
+      });
+    } else {
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(400).json({ message: "Invalid credentials" });
+      }
+      deletedUser = await prisma.user.delete({
+        where: {
+          id: parseInt(id),
+        },
+      });
+    }
+    if (!deletedUser) {
+      return res.status(400).json({ message: "User not deleted" });
+    }
+    // Supprimer les posts de l'utilisateur
+    const posts = await prisma.post.deleteMany({
+      where: {
+        user_id: parseInt(id),
+      },
+    });
+    // Supprimer les likes de l'utilisateur
+    const likes = await prisma.like.deleteMany({
+      where: {
+        user_id: parseInt(id),
+      },
+    });
+    // Supprimer les photos de l'utilisateur
+    const pictures = await prisma.picture.deleteMany({
+      where: {
+        user_id: parseInt(id),
+      },
+    });
+    res.status(200).json({ message: "User deleted", deletedUser });
+  },
 
   /**
    * Récupérer tous les posts d'un utilisateur
    */
   getAllPostsFromUser: async (req, res) => {
-    const { id } = getUserId(req);
+    const id = req.params.id;
     const user = await prisma.user.findUnique({
       where: {
         id: parseInt(id),
