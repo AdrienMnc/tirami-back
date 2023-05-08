@@ -53,3 +53,29 @@ function checkUser(req, res, next) {
   }
   next();
 }
+
+
+//A voir si on le agrde ou pas
+function generateTokenForUser(user) {
+  return jwt.sign(
+    JSON.stringify({
+      id: user.id,
+      role: user.role,
+    }),
+    process.env.JWT_SECRET_KEY,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    }
+  );
+}
+
+return jwt.sign(
+  {
+    id: user.id,
+    role: user.role,
+  },
+  process.env.JWT_SECRET_KEY,
+  {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  }
+);

@@ -2,10 +2,10 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 module.exports = {
-  // Créer un nouveau commentaire (Post : content, author_id, restaurant_id,  dessert_id)
-  createComment: async (req, res) => {
+  // Créer un nouveau post (Post : content, author_id, restaurant_id,  dessert_id)
+  createPost: async (req, res) => {
     const { content, author_id, restaurant_id, dessert_id } = req.body;
-    const comment = await prisma.comment.create({
+    const post = await prisma.post.create({
       data: {
         content: content,
         author_id: author_id,
@@ -13,65 +13,229 @@ module.exports = {
         dessert_id: dessert_id,
       },
     });
-    if (!comment) {
+    if (!post) {
       return res.status(400).json({ message: "Post not created" });
     }
-    res.status(201).json({ message: "Post created", comment });
-  },
-
-  // Récupérer tous les commentaires pour un restaurant
-  getAllComments: async (req, res) => {
-    const { id } = req.params;
-    const comments = await prisma.comment.findMany({
+    // Mettre à jour le nombre de posts du restaurant (commentCount) et sa note moyenne (averageRating)
+    const restaurant = await prisma.restaurant.findUnique({
       where: {
-        restaurant_id: parseInt(id),
+        id: restaurant_id,
       },
     });
-    if (!comments) {
-      return res.status(400).json({ message: "No comments found" });
+    // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts actifs
+    const averageRating =
+      (restaurant.averageRating * restaurant.commentCount + req.body.rating) /
+      (restaurant.commentCount + 1);
+    const updatedRestaurant = await prisma.restaurant.update({
+      where: {
+        id: restaurant_id,
+      },
+      data: {
+        commentCount: restaurant.commentCount + 1,
+        averageRating: averageRating,
+      },
+    });
+    if (!updatedRestaurant) {
+      return res.status(400).json({ message: "Restaurant not updated" });
     }
-    // Envoyer les commentaires et le nom de l'auteur
-    const commentsWithAuthor = await Promise.all(
-      comments.map(async (comment) => {
-        const author = await prisma.user.findUnique({
-          where: {
-            id: comment.author_id,
-          },
-        });
-        return { ...comment, author: author.username };
-      })
-    );
+    res
+      .status(201)
+      .json({ message: "Post created and restaurant updated", post });
   },
 
-  // Mettre à jour un commentaire
-  updateComment: async (req, res) => {
+  // Récupérer tous les posts pour un restaurant (doublon avec la méthode du restaurantController)
+  getAllPostsForOneRestaurant: async (req, res) => {
     const { id } = req.params;
-    const { content } = req.body;
-    const comment = await prisma.comment.update({
+    const posts = await prisma.post.findMany({
+      where: {
+        restaurant_id: parseInt(id),
+        deactivated: false,
+      },
+      include: {
+        author: true,
+      },
+    });
+    if (!posts) {
+      return res.status(400).json({ message: "No posts found" });
+    }
+    res.status(200).json(posts);
+  },
+
+  // Récupérer un post par ID et le renvoyer avec les photos associées (utilisé lorsqu'un utilisateur veut afficher son post pour le modifier)
+  getOnePost: async (req, res) => {
+    const { id } = req.params;
+    const post = await prisma.post.findUnique({
+      where: {
+        id: parseInt(id),
+      },
+      include: {
+        post_pics: true,
+      },
+    });
+    if (!post) {
+      return res.status(400).json({ message: "No post found" });
+    }
+    res.status(200).json(post);
+  },
+
+  // Mettre à jour un post
+  updatePost: async (req, res) => {
+    const { id } = req.params;
+    const { content, rating } = req.body;
+    // Récupérer le post
+    const post = await prisma.post.findUnique({
+      where: {
+        id: parseInt(id),
+      },
+    });
+    if (!post) {
+      return res.status(400).json({ message: "No post found" });
+    }
+    // Vérifier que l'utilisateur est bien l'auteur du post
+    if (post.author_id !== req.user.id) {
+      return res.status(400).json({ message: "You are not the author" });
+    }
+    // Comparer post.rating et req.body.rating
+    if (post.rating !== req.body.rating) {
+      // Si les notes sont différentes, mettre à jour la note du post
+      const updatedPost = await prisma.post.update({
+        where: {
+          id: parseInt(id),
+        },
+        data: {
+          content: content,
+          rating: rating,
+        },
+      });
+      if (!updatedPost) {
+        return res.status(400).json({ message: "post not updated" });
+      }
+      // Mettre à jour la note moyenne du restaurant
+      const restaurant = await prisma.restaurant.findUnique({
+        where: {
+          id: post.restaurant_id,
+        },
+      });
+      // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts
+      const averageRating =
+        (restaurant.averageRating * restaurant.commentCount -
+          post.rating +
+          req.body.rating) /
+        restaurant.commentCount;
+      const updatedRestaurant = await prisma.restaurant.update({
+        where: {
+          id: post.restaurant_id,
+        },
+        data: {
+          averageRating: averageRating,
+        },
+      });
+      if (!updatedRestaurant) {
+        return res.status(400).json({ message: "Restaurant not updated" });
+      }
+      res.status(200).json({ message: "post updated", post });
+    } else {
+      // Si les notes sont identiques, mettre à jour le post sans mettre à jour la note moyenne du restaurant
+      const updatedPost = await prisma.post.update({
+        where: {
+          id: parseInt(id),
+        },
+        data: {
+          content: content,
+        },
+      });
+      if (!updatedPost) {
+        return res.status(400).json({ message: "post not updated" });
+      }
+      res.status(200).json({ message: "post updated", post });
+    }
+  },
+
+  // Désactiver un post
+  deactivatePost: async (req, res) => {
+    const { id } = req.params;
+    const post = await prisma.post.update({
       where: {
         id: parseInt(id),
       },
       data: {
-        content: content,
+        deactivated: true,
       },
     });
-    if (!comment) {
-      return res.status(400).json({ message: "Comment not updated" });
+    if (!post) {
+      return res.status(400).json({ message: "post not deactivated" });
     }
-    res.status(200).json({ message: "Comment updated", comment });
+    // Récupérer le restaurant lié pour mettre à jour le nombre de posts (commentCount) et sa note moyenne (averageRating)
+    const restaurant = await prisma.restaurant.findUnique({
+      where: {
+        id: post.restaurant_id,
+      },
+    });
+    // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts
+    const averageRating =
+      (restaurant.averageRating * restaurant.commentCount - post.rating) /
+      (restaurant.commentCount - 1);
+    const updatedRestaurant = await prisma.restaurant.update({
+      where: {
+        id: post.restaurant_id,
+      },
+      data: {
+        commentCount: restaurant.commentCount - 1,
+        averageRating: averageRating,
+      },
+    });
+    if (!updatedRestaurant) {
+      return res.status(400).json({ message: "Restaurant not updated" });
+    }
+    res
+      .status(200)
+      .json({ message: "Post deactivated and restaurant updated", post });
   },
 
-  // Supprimer un commentaire
-  deleteComment: async (req, res) => {
+  // Supprimer un post
+  deletePost: async (req, res) => {
     const { id } = req.params;
-    const comment = await prisma.comment.delete({
+    const post = await prisma.post.delete({
       where: {
         id: parseInt(id),
       },
     });
-    if (!comment) {
-      return res.status(400).json({ message: "Comment not deleted" });
+    if (!post) {
+      return res.status(400).json({ message: "Post not deleted" });
     }
-    res.status(200).json({ message: "Comment deleted", comment });
+    // Chercher les photos associées au post et les supprimer
+    const postPics = await prisma.post_pic.deleteMany({
+      where: {
+        post_id: parseInt(id),
+      },
+    });
+    if (!postPics) {
+      return res.status(400).json({ message: "Post pics not deleted" });
+    }
+    // Récupérer le restaurant lié pour mettre à jour le nombre de posts (commentCount) et sa note moyenne (averageRating)
+    const restaurant = await prisma.restaurant.findUnique({
+      where: {
+        id: post.restaurant_id,
+      },
+    });
+    // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts
+    const averageRating =
+      (restaurant.averageRating * restaurant.commentCount - post.rating) /
+      (restaurant.commentCount - 1);
+    const updatedRestaurant = await prisma.restaurant.update({
+      where: {
+        id: post.restaurant_id,
+      },
+      data: {
+        commentCount: restaurant.commentCount - 1,
+        averageRating: averageRating,
+      },
+    });
+    if (!updatedRestaurant) {
+      return res.status(400).json({ message: "Restaurant not updated" });
+    }
+    res
+      .status(200)
+      .json({ message: "Post deleted and restaurant updated", post });
   },
 };

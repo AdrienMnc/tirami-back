@@ -44,6 +44,8 @@ model Restaurant {
   id_api         String                 @unique
   my_restaurants MyFavoriteRestaurant[]
   post           Post[]
+  averageRating  Float                  @default(0) @map("average_rating")
+  postCount      Int                    @default(0) @map("post_count")
 
   @@map("restaurants")
 }
@@ -51,10 +53,10 @@ model Restaurant {
 model Picture {
   id          Int     @id @default(autoincrement())
   url         String  @unique
-  owner       User    @relation(fields: [owner_id], references: [id])
+  owner       User    @relation(fields: [owner_id], references: [id]) // onDelete: Cascade)
   owner_id    Int
   profile_pic Boolean @default(false)
-  post        Post?   @relation("PostPictures", fields: [post_id], references: [id])
+  post        Post?   @relation("PostPictures", fields: [post_id], references: [id]) // onDelete: Cascade)
   post_id     Int?
 
   @@map("pictures")
@@ -72,15 +74,16 @@ model Dessert {
 model Post {
   id                 Int        @id @default(autoincrement())
   content            String
+  rating             Int
   banned             Boolean    @default(false)
   signaled           Int        @default(0)
   created_at         DateTime   @default(now())
-  author             User       @relation(fields: [author_id], references: [id])
+  author             User       @relation(fields: [author_id], references: [id]) // onDelete: Cascade)
   author_id          Int
   author_deactivated Boolean    @default(false)
   post_pics          Picture[]  @relation("PostPictures")
   like               Like[]
-  Restaurant         Restaurant @relation(fields: [restaurant_id], references: [id])
+  Restaurant         Restaurant @relation(fields: [restaurant_id], references: [id]) // onDelete: Cascade)
   restaurant_id      Int
   dessert            Dessert    @relation(fields: [dessert_id], references: [id])
   dessert_id         Int
@@ -92,9 +95,9 @@ model Post {
 
 model Follow {
   id          Int  @id @default(autoincrement())
-  follower    User @relation("Following", fields: [follower_id], references: [id])
+  follower    User @relation("Following", fields: [follower_id], references: [id]) // onDelete: Cascade)
   follower_id Int
-  followed    User @relation("Followed_by", fields: [followed_id], references: [id])
+  followed    User @relation("Followed_by", fields: [followed_id], references: [id]) // onDelete: Cascade)
   followed_id Int
 
   @@map("follows")
@@ -102,9 +105,9 @@ model Follow {
 
 model Like {
   id      Int  @id @default(autoincrement())
-  user    User @relation(fields: [user_id], references: [id])
+  user    User @relation(fields: [user_id], references: [id]) // onDelete: Cascade)
   user_id Int
-  post    Post @relation(fields: [post_id], references: [id])
+  post    Post @relation(fields: [post_id], references: [id]) // onDelete: Cascade)
   post_id Int
 
   @@map("likes")
@@ -112,9 +115,9 @@ model Like {
 
 model MyFavoriteRestaurant {
   id            Int        @id @default(autoincrement())
-  user          User       @relation(fields: [user_id], references: [id])
+  user          User       @relation(fields: [user_id], references: [id]) // onDelete: Cascade)
   user_id       Int
-  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id])
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [id]) // onDelete: Cascade)
   restaurant_id Int
 
   @@map("my_favorite_restaurants")

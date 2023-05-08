@@ -1,6 +1,8 @@
 const { PrismaClient } = require("@prisma/client");
 const {
   generateTokenForUser,
+  generateRefreshTokenForUser,
+  invalidateToken,
   getUserRole,
   getUserId,
   checkPasswordFormat,
@@ -148,10 +150,33 @@ module.exports = {
         return res.status(400).json({ message: "Invalid credentials" });
       }
       const token = generateTokenForUser(user);
-      res.status(200).json({ message: "User logged in", token });
+      const refreshToken = generateRefreshTokenForUser(user);
+
+      res.status(200).json({ message: "User logged in", token, refreshToken });
     } else {
       res.status(400).json({ message: "User not found" });
     }
+  },
+
+  /**
+   *  Se déconnecter en invalidant le token et le refresh token
+   */
+  logout: async (req, res) => {
+    // récupérer le token
+    const token = req.headers.authorization.split(" ")[1];
+    // récupérer le refresh token
+    const refreshToken = req.body.refreshToken;
+    // enregistrer les tokens dans la table invalidToken
+    const invalidTokenCreated = await invalidateToken(token);
+    const invalidRefreshTokenCreated = await invalidateToken(refreshToken);
+    if (!invalidTokenCreated || !invalidRefreshTokenCreated) {
+      return res.status(400).json({ message: "Token not invalidated" });
+    }
+    res.status(200).json({
+      message: "Token invalidated",
+      invalidTokenCreated,
+      invalidRefreshTokenCreated,
+    });
   },
 
   /**
@@ -432,12 +457,41 @@ module.exports = {
         id: parseInt(id),
       },
       include: {
-        posts: true,
+        posts: {
+          include: {
+            post_pics: true,
+            restaurant: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        post_pics: true,
       },
     });
     if (!user) {
       return res.status(400).json({ message: "No user found" });
     }
     res.status(200).json(user.posts);
+  },
+
+  /**
+   * Récupérer tous les restaurants favoris de l'utilisateur connecté
+   */
+  getAllFavoriteRestaurantsFromUser: async (req, res) => {
+    const id = await getUserId(req);
+    const user = await prisma.user.findUnique({
+      where: {
+        id: parseInt(id),
+      },
+      include: {
+        favorite_restaurants: true,
+      },
+    });
+    if (!user) {
+      return res.status(400).json({ message: "No user found" });
+    }
+    res.status(200).json(user.favorite_restaurants);
   },
 };
