@@ -390,6 +390,64 @@ module.exports = {
           deactivated_at: new Date(),
         },
       });
+      // Pour chaque post, actualiser le nombre de posts du restaurant et sa note moyenne
+      const postsFromUser = await prisma.post.findMany({
+        where: {
+          user_id: parseInt(id),
+        },
+      });
+      for (let i = 0; i < postsFromUser.length; i++) {
+        const post = postsFromUser[i];
+        const restaurant = await prisma.restaurant.findUnique({
+          where: {
+            id: post.restaurant_id,
+          },
+        });
+        // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts actifs
+        const averageRating = calculateAverageRating(post.restaurant_id);
+        const updatedRestaurant = await prisma.restaurant.update({
+          where: {
+            id: post.restaurant_id,
+          },
+          data: {
+            commentCount: restaurant.commentCount - 1,
+            averageRating: averageRating,
+          },
+        });
+      }
+
+      // Passer les likes de l'utilisateur à deactivated = true
+      const likes = await prisma.like.updateMany({
+        where: {
+          user_id: parseInt(id),
+        },
+        data: {
+          deactivated: true,
+          deactivated_at: new Date(),
+        },
+      });
+
+      // Passer les follows de l'utilisateur à deactivated = true
+      const follows = await prisma.follow.updateMany({
+        where: {
+          follower_id: parseInt(id),
+        },
+        data: {
+          deactivated: true,
+          deactivated_at: new Date(),
+        },
+      });
+
+      // Passer les photos de l'utilisateur à deactivated = true
+      const pictures = await prisma.picture.updateMany({
+        where: {
+          user_id: parseInt(id),
+        },
+        data: {
+          deactivated: true,
+          deactivated_at: new Date(),
+        },
+      });
     }
     res.status(200).json({ message: "User deactivated", deactivatedUser });
   },
@@ -432,6 +490,40 @@ module.exports = {
         user_id: parseInt(id),
       },
     });
+
+    // Pour chaque post supprimé, actualiser le nombre de posts du restaurant et sa note moyenne
+    const postsFromUser = await prisma.post.findMany({
+      where: {
+        user_id: parseInt(id),
+      },
+    });
+    for (let i = 0; i < postsFromUser.length; i++) {
+      const post = postsFromUser[i];
+      const restaurant = await prisma.restaurant.findUnique({
+        where: {
+          id: post.restaurant_id,
+        },
+      });
+      // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts actifs
+      const averageRating = calculateAverageRating(post.restaurant_id);
+      const updatedRestaurant = await prisma.restaurant.update({
+        where: {
+          id: post.restaurant_id,
+        },
+        data: {
+          commentCount: restaurant.commentCount - 1,
+          averageRating: averageRating,
+        },
+      });
+    }
+
+    // Supprimer les follows de l'utilisateur
+    const follows = await prisma.follow.deleteMany({
+      where: {
+        follower_id: parseInt(id),
+      },
+    });
+
     // Supprimer les likes de l'utilisateur
     const likes = await prisma.like.deleteMany({
       where: {

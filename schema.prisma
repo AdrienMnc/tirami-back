@@ -51,13 +51,15 @@ model Restaurant {
 }
 
 model Picture {
-  id          Int     @id @default(autoincrement())
-  url         String  @unique
-  owner       User    @relation(fields: [owner_id], references: [id]) // onDelete: Cascade)
-  owner_id    Int
-  profile_pic Boolean @default(false)
-  post        Post?   @relation("PostPictures", fields: [post_id], references: [id]) // onDelete: Cascade)
-  post_id     Int?
+  id             Int       @id @default(autoincrement())
+  url            String    @unique
+  owner          User      @relation(fields: [owner_id], references: [id]) // onDelete: Cascade)
+  owner_id       Int
+  profile_pic    Boolean   @default(false)
+  post           Post?     @relation("PostPictures", fields: [post_id], references: [id]) // onDelete: Cascade)
+  post_id        Int?
+  deactivated    Boolean   @default(false)
+  deactivated_at DateTime?
 
   @@map("pictures")
 }
@@ -65,7 +67,7 @@ model Picture {
 model Dessert {
   id   Int    @id @default(autoincrement())
   name String @unique
-  type String @unique
+  type String @unique @default("Tiramisu")
   post Post[]
 
   @@map("desserts")
@@ -83,7 +85,7 @@ model Post {
   author_deactivated Boolean    @default(false)
   post_pics          Picture[]  @relation("PostPictures")
   like               Like[]
-  Restaurant         Restaurant @relation(fields: [restaurant_id], references: [id]) // onDelete: Cascade)
+  restaurant         Restaurant @relation(fields: [restaurant_id], references: [id]) // onDelete: Cascade)
   restaurant_id      Int
   dessert            Dessert    @relation(fields: [dessert_id], references: [id])
   dessert_id         Int
@@ -94,21 +96,25 @@ model Post {
 }
 
 model Follow {
-  id          Int  @id @default(autoincrement())
-  follower    User @relation("Following", fields: [follower_id], references: [id]) // onDelete: Cascade)
-  follower_id Int
-  followed    User @relation("Followed_by", fields: [followed_id], references: [id]) // onDelete: Cascade)
-  followed_id Int
+  id             Int       @id @default(autoincrement())
+  follower       User      @relation("Following", fields: [follower_id], references: [id]) // onDelete: Cascade)
+  follower_id    Int
+  followed       User      @relation("Followed_by", fields: [followed_id], references: [id]) // onDelete: Cascade)
+  followed_id    Int
+  deactivated    Boolean   @default(false)
+  deactivated_at DateTime?
 
   @@map("follows")
 }
 
 model Like {
-  id      Int  @id @default(autoincrement())
-  user    User @relation(fields: [user_id], references: [id]) // onDelete: Cascade)
-  user_id Int
-  post    Post @relation(fields: [post_id], references: [id]) // onDelete: Cascade)
-  post_id Int
+  id             Int       @id @default(autoincrement())
+  user           User      @relation(fields: [user_id], references: [id]) // onDelete: Cascade)
+  user_id        Int
+  post           Post      @relation(fields: [post_id], references: [id]) // onDelete: Cascade)
+  post_id        Int
+  deactivated    Boolean   @default(false)
+  deactivated_at DateTime?
 
   @@map("likes")
 }

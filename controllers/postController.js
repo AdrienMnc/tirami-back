@@ -1,37 +1,59 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const { calculateAverageRating, getUserId } = require("../lib/functions");
 
 module.exports = {
   // Créer un nouveau post (Post : content, author_id, restaurant_id,  dessert_id)
   createPost: async (req, res) => {
-    const { content, author_id, restaurant_id, dessert_id } = req.body;
+    const { content, rating, restaurant_id, dessert_id } = req.body;
+    // Récupérer l'id de l'auteur du post dans le token
+    const author_id = await getUserId(req);
+    console.log("ID auteur : " + author_id);
+    console.log("Contenu : " + content);
+    console.log("restaurant ID : " + restaurant_id);
+    console.log("Dessert ID : " + dessert_id);
     const post = await prisma.post.create({
       data: {
         content: content,
-        author_id: author_id,
-        restaurant_id: restaurant_id,
-        dessert_id: dessert_id,
+        rating: rating,
+        author: {
+          connect: {
+            id: author_id,
+          },
+        },
+
+        restaurant: {
+          connect: {
+            id: restaurant_id,
+          },
+        },
+
+        dessert: {
+          connect: {
+            id: dessert_id,
+          },
+        },
       },
     });
     if (!post) {
       return res.status(400).json({ message: "Post not created" });
     }
-    // Mettre à jour le nombre de posts du restaurant (commentCount) et sa note moyenne (averageRating)
+    // Mettre à jour le nombre de posts du restaurant (postCount) et sa note moyenne (averageRating)
     const restaurant = await prisma.restaurant.findUnique({
       where: {
         id: restaurant_id,
       },
     });
     // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts actifs
-    const averageRating =
-      (restaurant.averageRating * restaurant.commentCount + req.body.rating) /
-      (restaurant.commentCount + 1);
+    const averageRating = await calculateAverageRating(restaurant_id);
+    console.log("averageRating : " + averageRating);
+
     const updatedRestaurant = await prisma.restaurant.update({
       where: {
         id: restaurant_id,
       },
       data: {
-        commentCount: restaurant.commentCount + 1,
+        postCount: restaurant.postCount + 1,
         averageRating: averageRating,
       },
     });
@@ -43,6 +65,7 @@ module.exports = {
       .json({ message: "Post created and restaurant updated", post });
   },
 
+  // UTILISER L'ID DE L'API EXTERNE POUR AFFICHER LES POSTS D'UN RESTAURANT -------------------------------------------------- à compléter après avoir géré l'API restaurants
   // Récupérer tous les posts pour un restaurant (doublon avec la méthode du restaurantController)
   getAllPostsForOneRestaurant: async (req, res) => {
     const { id } = req.params;
@@ -51,8 +74,25 @@ module.exports = {
         restaurant_id: parseInt(id),
         deactivated: false,
       },
+      // Récupérer l'auteur du post si user.keepContent est true
       include: {
-        author: true,
+        user: {
+          where: {
+            keepContent: true,
+          },
+          select: {
+            username: true,
+            picture: {
+              select: {
+                url: true,
+              },
+              where: {
+                profile_pic: true,
+              },
+            },
+          },
+        },
+        post_pics: true,
       },
     });
     if (!posts) {
@@ -117,11 +157,7 @@ module.exports = {
         },
       });
       // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts
-      const averageRating =
-        (restaurant.averageRating * restaurant.commentCount -
-          post.rating +
-          req.body.rating) /
-        restaurant.commentCount;
+      const averageRating = await calculateAverageRating(post.restaurant_id);
       const updatedRestaurant = await prisma.restaurant.update({
         where: {
           id: post.restaurant_id,
@@ -165,22 +201,20 @@ module.exports = {
     if (!post) {
       return res.status(400).json({ message: "post not deactivated" });
     }
-    // Récupérer le restaurant lié pour mettre à jour le nombre de posts (commentCount) et sa note moyenne (averageRating)
+    // Récupérer le restaurant lié pour mettre à jour le nombre de posts (postCount) et sa note moyenne (averageRating)
     const restaurant = await prisma.restaurant.findUnique({
       where: {
         id: post.restaurant_id,
       },
     });
     // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts
-    const averageRating =
-      (restaurant.averageRating * restaurant.commentCount - post.rating) /
-      (restaurant.commentCount - 1);
+    const averageRating = await calculateAverageRating(post.restaurant_id);
     const updatedRestaurant = await prisma.restaurant.update({
       where: {
         id: post.restaurant_id,
       },
       data: {
-        commentCount: restaurant.commentCount - 1,
+        postCount: restaurant.postCount - 1,
         averageRating: averageRating,
       },
     });
@@ -212,22 +246,20 @@ module.exports = {
     if (!postPics) {
       return res.status(400).json({ message: "Post pics not deleted" });
     }
-    // Récupérer le restaurant lié pour mettre à jour le nombre de posts (commentCount) et sa note moyenne (averageRating)
+    // Récupérer le restaurant lié pour mettre à jour le nombre de posts (postCount) et sa note moyenne (averageRating)
     const restaurant = await prisma.restaurant.findUnique({
       where: {
         id: post.restaurant_id,
       },
     });
     // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts
-    const averageRating =
-      (restaurant.averageRating * restaurant.commentCount - post.rating) /
-      (restaurant.commentCount - 1);
+    const averageRating = await calculateAverageRating(post.restaurant_id);
     const updatedRestaurant = await prisma.restaurant.update({
       where: {
         id: post.restaurant_id,
       },
       data: {
-        commentCount: restaurant.commentCount - 1,
+        postCount: restaurant.postCount - 1,
         averageRating: averageRating,
       },
     });

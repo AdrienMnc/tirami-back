@@ -17,26 +17,10 @@ const verifMiddleware = require("./middlewares/verifMiddleware");
 
 //Liste des routes
 
-// Routes publiques
-/**
- * accueil
- * inscription
- * connexion
- * mot de passe oublié
- */
 app.use("/user", userRoutes);
 
-// Routes protégées : authentification requise
-/**
- * profil
- * déconnexion
- * modifier le profil
- * supprimer le profil
- *
- */
+app.use("/restaurant", restaurantRoutes);
 
-// Routes protégées : authentification requise + rôle MODO ou ADMIN
-
-// Routes protégées : authentification requise + rôle ADMIN
+app.use("/post", postRoutes);
 
 module.exports = app;

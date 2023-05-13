@@ -13,9 +13,13 @@ module.exports = {
         id: parseInt(id),
       },
       include: {
-        posts: {
+        post: {
           include: {
-            post_pics: true,
+            picture: {
+              select: {
+                url: true,
+              },
+            },
             author: {
               select: {
                 username: true,
@@ -31,7 +35,6 @@ module.exports = {
             },
           },
         },
-        post_pics: true,
       },
     });
     if (!restaurant) {
@@ -51,7 +54,7 @@ module.exports = {
         id_api: id_api,
       },
       include: {
-        posts: {
+        post: {
           include: {
             post_pics: true,
             author: {
@@ -69,7 +72,6 @@ module.exports = {
             },
           },
         },
-        post_pics: true,
       },
     });
     if (!restaurant) {

@@ -44,8 +44,6 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=production
-      # sert a R marche pas tout est pris dans le schema.prisma dans tous les cas!
-      - DATABASE_URL=mysql://root:Taster_root+123@BOCAL-2023%@db_mysql_tiramisu:3306/tiramisu_bases
     depends_on:
       - db
       - phpmyadmin
