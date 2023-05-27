@@ -19,9 +19,12 @@ router.get("/activate/:token", userController.activateUser);
 // Route pour se connecter (POST)
 router.post("/login", userController.login);
 
+// Route pour se déconnecter (POST)
+router.post("/logout", userController.logout);
+
 // Route pour récupérer un utilisateur par ID (GET)
 router.get(
-  "/myProfile",
+  "/my-profile",
   verifMiddleware.isAuthenticated,
   userController.getOneUser
 );

@@ -135,6 +135,7 @@ module.exports = {
    *  Connexion de l'utilisateur
    */
   login: async (req, res) => {
+    console.log("entré dans login");
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ message: "Missing credentials" });
@@ -161,108 +162,131 @@ module.exports = {
   /**
    *  Se déconnecter en invalidant le token et le refresh token
    */
+
   logout: async (req, res) => {
-    // récupérer le token
-    const token = req.headers.authorization.split(" ")[1];
-    // récupérer le refresh token
-    const refreshToken = req.body.refreshToken;
-    // enregistrer les tokens dans la table invalidToken
-    const invalidTokenCreated = await invalidateToken(token);
-    const invalidRefreshTokenCreated = await invalidateToken(refreshToken);
-    if (!invalidTokenCreated || !invalidRefreshTokenCreated) {
-      return res.status(400).json({ message: "Token not invalidated" });
+    console.log("entré dans logout");
+    try {
+      // Vérification de l'en-tête Authorization
+      const authorizationHeader = req.headers.authorization;
+      if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
+        return res.status(400).json({ message: "Invalid token" });
+      }
+
+      // Récupérer le token
+      const token = authorizationHeader.split(" ")[1];
+
+      // Vérification du refresh token
+      const refreshToken = req.body.refreshToken;
+      if (!refreshToken) {
+        return res.status(400).json({ message: "Refresh token not provided" });
+      }
+
+      // Enregistrement des tokens dans la table invalidToken
+      const invalidTokenCreated = await invalidateToken(token);
+      const invalidRefreshTokenCreated = await invalidateToken(refreshToken);
+
+      if (!invalidTokenCreated || !invalidRefreshTokenCreated) {
+        return res.status(400).json({ message: "Token not invalidated" });
+      }
+
+      res.status(200).json({
+        message: "Tokens invalidated",
+        invalidTokenCreated,
+        invalidRefreshTokenCreated,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
     }
-    res.status(200).json({
-      message: "Token invalidated",
-      invalidTokenCreated,
-      invalidRefreshTokenCreated,
-    });
   },
 
   /**
    *  Mettre à jour un utilisateur
    */
   updateUser: async (req, res) => {
-    const id = await getUserId(req);
-    const { username, email, password, profile_pic_id } = req.body;
-    // Récupérer l'utilisateur à modifier
-    const userToModify = await prisma.user.findUnique({
-      where: {
-        id: parseInt(id),
-      },
-    });
+    try {
+      console.log("entré dans updateUser");
+      const id = await getUserId(req);
+      const { username, email, password, profile_pic_id } = req.body;
+      // Récupérer l'utilisateur à modifier si on a bien récupéré son id
+      const userToModify = await prisma.user.findUnique({
+        where: {
+          id: parseInt(id),
+        },
+      });
 
-    // Comparer le mot de passe reçu avec le hash en base de données
-    if (!comparePassword(password, userToModify.password)) {
-      return res.status(400).json({ message: "Invalid password" });
-    }
-    // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris
-    const usernameAlreadyExists = await prisma.user.findFirst({
-      where: {
-        username: username,
-      },
-    });
-    if (usernameAlreadyExists && usernameAlreadyExists.id != id) {
-      return res.status(400).json({ message: "Username already exists" });
-    }
-    // Vérifier que le nouveau mail n'est pas déjà pris
-    const userWithThisEmail = await prisma.user.findFirst({
-      where: {
-        email: email,
-      },
-    });
-    // Si l'utilisateur a fourni un email, vérifier qu'il n'est pas déjà pris
-    if (email) {
-      if (userWithThisEmail && userWithThisEmail.id != id) {
-        return res.status(400).json({ message: "Email already exists" });
+      // Comparer le mot de passe reçu avec le hash en base de données
+      if (!comparePassword(password, userToModify.password)) {
+        return res.status(400).json({ message: "Invalid password" });
       }
-    }
-
-    // Vérifier que le nouveau mot de passe a un format valide
-    if (!checkPasswordFormat(password)) {
-      return res.status(400).json({
-        message:
-          "Password must contain at least 8 characters, one uppercase, one lowercase and one number",
-      });
-    }
-    // Mettre à jour l'utilisateur avec les nouvelles données (username, email, password)
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.update({
-      where: {
-        id: parseInt(id),
-      },
-      data: {
-        username: username,
-        email: email,
-        password: hashedPassword,
-      },
-    });
-    //Si l'utilisateur a fourni un nouveau profile_pic_id, mettre à jour le statut de la nouvelle photo de profil et de l'ancienne
-    if (profile_pic_id) {
-      const oldProfilePic = await prisma.picture.update({
+      // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris
+      const usernameAlreadyExists = await prisma.user.findFirst({
         where: {
-          owner_id: parseInt(id),
+          username: username,
+        },
+      });
+      if (usernameAlreadyExists && usernameAlreadyExists.id != id) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      // Vérifier que le nouveau mail n'est pas déjà pris
+      const userWithThisEmail = await prisma.user.findFirst({
+        where: {
+          email: email,
+        },
+      });
+      // Si l'utilisateur a fourni un email, vérifier qu'il n'est pas déjà pris
+      if (email) {
+        if (userWithThisEmail && userWithThisEmail.id != id) {
+          return res.status(400).json({ message: "Email already exists" });
+        }
+      }
+
+      // Vérifier que le nouveau mot de passe a un format valide
+      if (!checkPasswordFormat(password)) {
+        return res.status(400).json({
+          message:
+            "Password must contain at least 8 characters, one uppercase, one lowercase and one number",
+        });
+      }
+      // Mettre à jour l'utilisateur avec les nouvelles données (username, email, password)
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const user = await prisma.user.update({
+        where: {
+          id: parseInt(id),
         },
         data: {
-          profile_pic: false,
+          username: username,
+          email: email,
+          password: hashedPassword,
         },
       });
-      const newProfilePic = await prisma.picture.update({
-        where: {
-          id: parseInt(profile_pic_id),
-        },
-        data: {
-          profile_pic: true,
-        },
-      });
+      //Si l'utilisateur a fourni un nouveau profile_pic_id, mettre à jour le statut de la nouvelle photo de profil et de l'ancienne
+      if (profile_pic_id) {
+        const oldProfilePic = await prisma.picture.update({
+          where: {
+            owner_id: parseInt(id),
+          },
+          data: {
+            profile_pic: false,
+          },
+        });
+        const newProfilePic = await prisma.picture.update({
+          where: {
+            id: parseInt(profile_pic_id),
+          },
+          data: {
+            profile_pic: true,
+          },
+        });
+      }
+      // Si tout s'est bien passé, renvoyer un message de succès
+      res.status(200).json({ message: "User updated", user });
+      // Si l'utilisateur n'a pas été mis à jour, renvoyer une erreur
+    } catch (error) {
+      console.log(error);
+      res.status(400).json({ message: "User not updated" });
     }
-    // Si l'utilisateur n'a pas été mis à jour, renvoyer une erreur
-    if (!user) {
-      return res.status(400).json({ message: "User not updated" });
-    }
-    // Si tout s'est bien passé, renvoyer un message de succès
-    res.status(200).json({ message: "User updated", user });
   },
 
   /**

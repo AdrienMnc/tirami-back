@@ -5,16 +5,23 @@ const { getUserId, getUserRole } = require("../lib/functions");
 module.exports = {
   async isAuthenticated(req, res, next) {
     try {
-      await getUserId(req);
+      const id = await getUserId(req);
+      req.userId = id; // Ajoute l'id de l'utilisateur à l'objet req pour une utilisation ultérieure
       next();
-    } catch (err) {
-      res.status(401).json({ message: err });
+    } catch (error) {
+      if (error.message === "Invalid token") {
+        res.status(401).json({ message: "Token invalide" });
+      } else if (error.message === "Invalid token type") {
+        res.status(401).json({ message: "Type de token invalide" });
+      } else {
+        res.status(401).json({ message: "Non autorisé" });
+      }
     }
   },
 
-  isModeratorOrAdmin(req, res, next) {
+  async isModeratorOrAdmin(req, res, next) {
     try {
-      const role = getUserRole(req);
+      const role = await getUserRole(req);
       if (role !== "MODO" && role !== "ADMIN") {
         throw "Unauthorized";
       }
@@ -24,9 +31,9 @@ module.exports = {
     }
   },
 
-  isAdmin(req, res, next) {
+  async isAdmin(req, res, next) {
     try {
-      const role = getUserRole(req);
+      const role = await getUserRole(req);
       if (role !== "ADMIN") {
         throw "Unauthorized";
       }
