@@ -30,6 +30,7 @@ module.exports = {
    * Récupérer un utilisateur connecté
    */
   getOneUser: async (req, res) => {
+    console.log("entré dans getOneUser");
     const loggedUserRole = await getUserRole(req);
     const id = await getUserId(req);
     const user = await prisma.user.findUnique({
@@ -174,9 +175,11 @@ module.exports = {
 
       // Récupérer le token
       const token = authorizationHeader.split(" ")[1];
+      console.log("token", token);
 
       // Vérification du refresh token
       const refreshToken = req.body.refreshToken;
+      console.log("refreshToken", refreshToken);
       if (!refreshToken) {
         return res.status(400).json({ message: "Refresh token not provided" });
       }

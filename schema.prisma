@@ -39,13 +39,14 @@ model InvalidToken {
 }
 
 model Restaurant {
-  id             Int                    @id @default(autoincrement())
-  name           String
-  id_api         String                 @unique
-  my_restaurants MyFavoriteRestaurant[]
-  post           Post[]
-  averageRating  Float                  @default(0) @map("average_rating")
-  postCount      Int                    @default(0) @map("post_count")
+  id              Int                    @id @default(autoincrement())
+  name_api        String
+  id_api          String                 @unique
+  description_api String                 @unique // contient le nom et l'adresse du restaurant tels que fournis par l'API
+  my_restaurants  MyFavoriteRestaurant[]
+  post            Post[]
+  averageRating   Float                  @default(0) @map("average_rating")
+  postCount       Int                    @default(0) @map("post_count")
 
   @@map("restaurants")
 }

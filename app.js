@@ -23,4 +23,6 @@ app.use("/restaurant", restaurantRoutes);
 
 app.use("/post", postRoutes);
 
+app.use("/dessert", dessertRoutes);
+
 module.exports = app;
