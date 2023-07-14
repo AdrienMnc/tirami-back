@@ -94,7 +94,7 @@ module.exports = {
           tempToken
         );
       } catch (error) {
-        return res.status(400).json({ message: "Email not sent" });
+        return res.status(400).json({ message: "Email not sent", error });
       }
       const newUser = await prisma.user.create({
         data: {
@@ -167,10 +167,7 @@ module.exports = {
       return res.status(400).json({ message: "Invalid email" });
     }
     // Préparer l'email et l'username
-    const { sanitizedEmail, sanitizedUsername } = prepareEmailAndUsername(
-      email,
-      username
-    );
+    const sanitizedEmail = sanitizeInput(email);
 
     const user = await prisma.user.findUnique({
       where: {
@@ -239,14 +236,12 @@ module.exports = {
    */
   updateUser: async (req, res) => {
     try {
-      console.log("entré dans updateUser");
       const id = await getUserId(req);
       const { username, email, password, profile_pic_id } = req.body;
       // Préparer l'email et l'username
-      const { sanitizedEmail, sanitizedUsername } = prepareEmailAndUsername(
-        email,
-        username
-      );
+      const sanitizedData = prepareEmailAndUsername(email, username);
+      const sanitizedEmail = sanitizedData.email;
+      const sanitizedUsername = sanitizedData.username;
 
       // Récupérer l'utilisateur à modifier si on a bien récupéré son id
       const userToModify = await prisma.user.findUnique({
@@ -281,6 +276,10 @@ module.exports = {
         },
       });
       if (usernameAlreadyExists && usernameAlreadyExists.id != id) {
+        console.log(
+          "usernameAlreadyExists id---------------",
+          usernameAlreadyExists.id
+        );
         return res.status(400).json({ message: "Username already exists" });
       }
       // Vérifier que le nouveau mail n'est pas déjà pris
