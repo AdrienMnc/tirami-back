@@ -9,10 +9,13 @@ const {
   generateTempToken,
   verifyTempToken,
   comparePassword,
+  sanitizeInput,
+  prepareEmailAndUsername,
 } = require("../lib/functions");
 const mailer = require("../lib/mailer");
 const prisma = new PrismaClient();
 const bcrypt = require("bcrypt");
+const validator = require("validator");
 
 module.exports = {
   /**
@@ -49,21 +52,35 @@ module.exports = {
    */
   createUser: async (req, res) => {
     const { username, email, password } = req.body;
+    // Vérifier si les paramètres sont présents
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Missing parameters" });
     }
+    // Empêcher l'utilisateur de choisir son rôle
     if (req.body.role) {
       return res.status(400).json({ message: "Invalid parameter given" });
     }
+    // Vérifier le format de l'email à l'aide de la librairie validator
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
+    // Vérifier le format du mot de passe
     if (!checkPasswordFormat(password)) {
       return res.status(400).json({
         message:
           "Password must contain at least 8 characters, one uppercase, one lowercase and one number",
       });
     }
+    // Préparer l'email et l'username
+    const { sanitizedEmail, sanitizedUsername } = prepareEmailAndUsername(
+      email,
+      username
+    );
+
+    // Vérifier si l'utilisateur existe déjà
     const user = await prisma.user.findFirst({
       where: {
-        OR: [{ email: email }, { username: username }],
+        OR: [{ email: sanitizedEmail }, { username: sanitizedUsername }],
       },
     });
     if (!user) {
@@ -71,14 +88,18 @@ module.exports = {
       // Création d'un token temporaire pour la validation de l'adresse email
       const tempToken = generateTempToken(email, username);
       try {
-        await mailer.sendConfirmationEmail(email, username, tempToken);
+        await mailer.sendConfirmationEmail(
+          sanitizedEmail,
+          sanitizedUsername,
+          tempToken
+        );
       } catch (error) {
         return res.status(400).json({ message: "Email not sent" });
       }
       const newUser = await prisma.user.create({
         data: {
-          username: username,
-          email: email,
+          username: sanitizedUsername,
+          email: sanitizedEmail,
           password: hashedPassword,
         },
       });
@@ -94,6 +115,7 @@ module.exports = {
   /**
    * Activation du compte après avoir cliqué sur le lien de confirmation dans l'email
    */
+  // À modifier pour une version à code de confirmation au lieu de lien
   activateUser: async (req, res) => {
     const { token } = req.params;
     // Vérifier le token
@@ -140,9 +162,19 @@ module.exports = {
     if (!email || !password) {
       return res.status(400).json({ message: "Missing credentials" });
     }
+    // Vérifier le format de l'email
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
+    // Préparer l'email et l'username
+    const { sanitizedEmail, sanitizedUsername } = prepareEmailAndUsername(
+      email,
+      username
+    );
+
     const user = await prisma.user.findUnique({
       where: {
-        email: email,
+        email: sanitizedEmail,
       },
     });
     if (user && user.deactivated === false) {
@@ -210,12 +242,33 @@ module.exports = {
       console.log("entré dans updateUser");
       const id = await getUserId(req);
       const { username, email, password, profile_pic_id } = req.body;
+      // Préparer l'email et l'username
+      const { sanitizedEmail, sanitizedUsername } = prepareEmailAndUsername(
+        email,
+        username
+      );
+
       // Récupérer l'utilisateur à modifier si on a bien récupéré son id
       const userToModify = await prisma.user.findUnique({
         where: {
           id: parseInt(id),
         },
       });
+      if (!userToModify) {
+        return res.status(400).json({ message: "User not found" });
+      }
+      // Vérifier que l'utilisateur est bien activé
+      if (userToModify.verified === false) {
+        return res.status(400).json({ message: "User not activated" });
+      }
+      // Vérifier que l'utilisateur n'est pas désactivé
+      if (userToModify.deactivated === true) {
+        return res.status(400).json({ message: "User deactivated" });
+      }
+      // Vérifier que l'utilisateur n'est pas banni
+      if (userToModify.banned === true) {
+        return res.status(400).json({ message: "User banned" });
+      }
 
       // Comparer le mot de passe reçu avec le hash en base de données
       if (!comparePassword(password, userToModify.password)) {
@@ -224,7 +277,7 @@ module.exports = {
       // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris
       const usernameAlreadyExists = await prisma.user.findFirst({
         where: {
-          username: username,
+          username: sanitizedUsername,
         },
       });
       if (usernameAlreadyExists && usernameAlreadyExists.id != id) {
@@ -233,10 +286,10 @@ module.exports = {
       // Vérifier que le nouveau mail n'est pas déjà pris
       const userWithThisEmail = await prisma.user.findFirst({
         where: {
-          email: email,
+          email: sanitizedEmail,
         },
       });
-      // Si l'utilisateur a fourni un email, vérifier qu'il n'est pas déjà pris
+      // Si l'utilisateur a fourni un email, vérifier qu'il n'est pas déjà pris par un autre utilisateur
       if (email) {
         if (userWithThisEmail && userWithThisEmail.id != id) {
           return res.status(400).json({ message: "Email already exists" });
@@ -258,8 +311,8 @@ module.exports = {
           id: parseInt(id),
         },
         data: {
-          username: username,
-          email: email,
+          username: sanitizedUsername,
+          email: sanitizedEmail,
           password: hashedPassword,
         },
       });
@@ -296,20 +349,30 @@ module.exports = {
    */
   forgotPassword: async (req, res) => {
     const { email } = req.body;
+    // Vérifier que l'email est bien fourni
+    if (!email) {
+      return res.status(400).json({ message: "Email not provided" });
+    }
+    // Sanitization de l'email
+    const sanitizedEmail = sanitize(email);
+    // Vérifier que l'email a un format valide
+    if (!checkEmailFormat(sanitizedEmail)) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
     // Vérifier que l'utilisateur existe
     const user = await prisma.user.findUnique({
       where: {
-        email: email,
+        email: sanitizedEmail,
       },
     });
     if (!user) {
       return res.status(400).json({ message: "User not found" });
     }
     // Si l'utilisateur existe, générer un token temporaire avec le mail de l'utilisateur
-    const token = generateTempToken(email);
+    const token = generateTempToken(sanitizedEmail);
     // Try la fonction sendResetPasswordEmail pour valider la création du compte
     try {
-      await mailer.sendResetPasswordEmail(email, token);
+      await mailer.sendResetPasswordEmail(sanitizedEmail, token);
     } catch (error) {
       return res.status(400).json({ message: "Email not sent" });
     }
@@ -325,7 +388,18 @@ module.exports = {
     const { token } = req.params;
     // utiliser verifyTempToken pour vérifier que le token est valide
     const { email } = verifyTempToken(token);
+    // Sanitization de l'email et mise en minuscules
+    const sanitizedEmail = sanitize(email).toLowerCase();
+
+    // Vérifier que l'email a un format valide
+    if (!checkEmailFormat(sanitizedEmail)) {
+      return res.status(400).json({ message: "Invalid email" });
+    }
     const { password } = req.body;
+    // Vérifier que le mot de passe est bien fourni
+    if (!password) {
+      return res.status(400).json({ message: "Password not provided" });
+    }
 
     if (!email) {
       return res.status(400).json({ message: "Invalid token" });
@@ -333,12 +407,13 @@ module.exports = {
     // Vérifier si l'utilisateur existe
     const user = await prisma.user.findUnique({
       where: {
-        email: email,
+        email: sanitizedEmail,
       },
     });
     if (!user) {
       return res.status(400).json({ message: "User not found" });
     }
+
     // Vérifier que le nouveau mot de passe a un format valide
     if (!checkPasswordFormat(password)) {
       return res.status(400).json({
@@ -351,7 +426,7 @@ module.exports = {
     try {
       await prisma.user.update({
         where: {
-          email: email,
+          email: sanitizedEmail,
         },
         data: {
           password: hashedPassword,
