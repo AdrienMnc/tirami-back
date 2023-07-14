@@ -19,6 +19,9 @@ module.exports = {
     }
   },
 
+  /**
+   * Middleware de vérification pour le rôle de modérateur ou administrateur
+   */
   async isModeratorOrAdmin(req, res, next) {
     try {
       const role = await getUserRole(req);
@@ -31,6 +34,9 @@ module.exports = {
     }
   },
 
+  /**
+   * Middleware de vérification pour le rôle d'administrateur
+   */
   async isAdmin(req, res, next) {
     try {
       const role = await getUserRole(req);

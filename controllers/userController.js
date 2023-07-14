@@ -68,9 +68,8 @@ module.exports = {
     });
     if (!user) {
       const hashedPassword = await bcrypt.hash(password, 10);
-      // Créer un token temporaire pour valider l'adresse email
+      // Création d'un token temporaire pour la validation de l'adresse email
       const tempToken = generateTempToken(email, username);
-      // Try la fonction sendConfirmationEmail pour valider la création du compte
       try {
         await mailer.sendConfirmationEmail(email, username, tempToken);
       } catch (error) {
