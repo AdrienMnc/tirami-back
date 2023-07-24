@@ -5,13 +5,56 @@ const { calculateAverageRating, getUserId } = require("../lib/functions");
 module.exports = {
   // Créer un nouveau post (Post : content, author_id, restaurant_id,  dessert_id)
   createPost: async (req, res) => {
-    const { content, rating, restaurant_id, dessert_id } = req.body;
+    const {
+      content,
+      rating,
+      restaurant_id,
+      dessert_id,
+      name_api,
+      description_api,
+    } = req.body;
     // Récupérer l'id de l'auteur du post dans le token
     const author_id = await getUserId(req);
-    console.log("ID auteur : " + author_id);
-    console.log("Contenu : " + content);
-    console.log("restaurant ID : " + restaurant_id);
-    console.log("Dessert ID : " + dessert_id);
+    let restaurant = null;
+    // Vérifier si le restaurant existe dans la base de données d'après le restaurant_id (id_api)
+    console.log("restaurant_id : " + restaurant_id);
+    const knownRestaurant = await prisma.restaurant.findUnique({
+      where: {
+        id_api: restaurant_id,
+      },
+    });
+    // Si le restaurant n'existe pas, le créer
+    if (!knownRestaurant) {
+      console.log("Restaurant non référencé-----------");
+      const newRestaurant = await prisma.restaurant.create({
+        data: {
+          id_api: restaurant_id,
+          name_api: name_api,
+          description_api: description_api,
+        },
+      });
+      if (!newRestaurant) {
+        console.log("Restaurant non créé-----------");
+        return res.status(400).json({ message: "Restaurant not created" });
+      }
+      console.log("Restaurant créé-----------");
+      restaurant = newRestaurant;
+    } else {
+      restaurant = knownRestaurant;
+      console.log("Restaurant référencé-----------");
+    }
+    // Vérifier si le dessert existe dans la base de données d'après le dessert_id
+    const knownDessert = await prisma.dessert.findUnique({
+      where: {
+        id: dessert_id,
+      },
+    });
+    if (!knownDessert) {
+      console.log("Dessert non référencé-----------");
+      return res.status(400).json({ message: "Invalid dessert type" });
+    }
+    // OK -> Créer le post dans la base de données
+    console.log("Dessert référencé-----------");
     const post = await prisma.post.create({
       data: {
         content: content,
@@ -24,7 +67,7 @@ module.exports = {
 
         restaurant: {
           connect: {
-            id: restaurant_id,
+            id: restaurant.id,
           },
         },
 
@@ -39,18 +82,13 @@ module.exports = {
       return res.status(400).json({ message: "Post not created" });
     }
     // Mettre à jour le nombre de posts du restaurant (postCount) et sa note moyenne (averageRating)
-    const restaurant = await prisma.restaurant.findUnique({
-      where: {
-        id: restaurant_id,
-      },
-    });
     // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts actifs
-    const averageRating = await calculateAverageRating(restaurant_id);
+    const averageRating = await calculateAverageRating(restaurant.id);
     console.log("averageRating : " + averageRating);
 
     const updatedRestaurant = await prisma.restaurant.update({
       where: {
-        id: restaurant_id,
+        id: restaurant.id,
       },
       data: {
         postCount: restaurant.postCount + 1,
@@ -64,6 +102,79 @@ module.exports = {
       .status(201)
       .json({ message: "Post created and restaurant updated", post });
   },
+
+  // Créer un nouveau post (Post : content, author_id, restaurant_id,  dessert_id)
+  // createPost: async (req, res) => {
+  //   const { content, rating, restaurant_id, dessert_id, description_api } =
+  //     req.body;
+  //   // Récupérer l'id de l'auteur du post dans le token
+  //   const author_id = await getUserId(req);
+  //   console.log("ID auteur : " + author_id);
+  //   console.log("Contenu : " + content);
+  //   console.log("restaurant ID : " + restaurant_id);
+  //   console.log("Dessert ID : " + dessert_id);
+  //   let restaurant;
+  //   // Vérifier si le restaurant existe à partir de restaurant_id pour id_api
+  //   const restaurantExists = await prisma.restaurant.findUnique({
+  //     where: {
+  //       id_api: restaurant_id,
+  //     },
+  //   });
+  //   if (!restaurantExists) {
+  //     return res.status(400).json({ message: "Restaurant not found" });
+  //   }
+  //   const post = await prisma.post.create({
+  //     data: {
+  //       content: content,
+  //       rating: rating,
+  //       author: {
+  //         connect: {
+  //           id: author_id,
+  //         },
+  //       },
+
+  //       restaurant: {
+  //         connect: {
+  //           id: restaurantExists.id,
+  //         },
+  //       },
+
+  //       dessert: {
+  //         connect: {
+  //           id: dessert_id,
+  //         },
+  //       },
+  //     },
+  //   });
+  //   if (!post) {
+  //     return res.status(400).json({ message: "Post not created" });
+  //   }
+  //   // Mettre à jour le nombre de posts du restaurant (postCount) et sa note moyenne (averageRating)
+  //   const restaurant = await prisma.restaurant.findUnique({
+  //     where: {
+  //       id: restaurant_id,
+  //     },
+  //   });
+  //   // Recalculer la note moyenne du restaurant en fonction de la note du post et du nombre de posts actifs
+  //   const averageRating = await calculateAverageRating(restaurant_id);
+  //   console.log("averageRating : " + averageRating);
+
+  //   const updatedRestaurant = await prisma.restaurant.update({
+  //     where: {
+  //       id: restaurant_id,
+  //     },
+  //     data: {
+  //       postCount: restaurant.postCount + 1,
+  //       averageRating: averageRating,
+  //     },
+  //   });
+  //   if (!updatedRestaurant) {
+  //     return res.status(400).json({ message: "Restaurant not updated" });
+  //   }
+  //   res
+  //     .status(201)
+  //     .json({ message: "Post created and restaurant updated", post });
+  // },
 
   // UTILISER L'ID DE L'API EXTERNE POUR AFFICHER LES POSTS D'UN RESTAURANT -------------------------------------------------- à compléter après avoir géré l'API restaurants
   // Récupérer tous les posts pour un restaurant (doublon avec la méthode du restaurantController)

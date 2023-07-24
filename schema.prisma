@@ -68,7 +68,7 @@ model Picture {
 model Dessert {
   id   Int    @id @default(autoincrement())
   name String @unique
-  type String @unique @default("Tiramisu")
+  type String @default("Tiramisu")
   post Post[]
 
   @@map("desserts")

@@ -1,10 +1,13 @@
 const { PrismaClient } = require("@prisma/client");
+const jwt = require("jsonwebtoken");
+
 const {
   generateTokenForUser,
   generateRefreshTokenForUser,
   invalidateToken,
   getUserRole,
   getUserId,
+  getToken,
   checkPasswordFormat,
   generateTempToken,
   verifyTempToken,
@@ -72,10 +75,8 @@ module.exports = {
       });
     }
     // Préparer l'email et l'username
-    const { sanitizedEmail, sanitizedUsername } = prepareEmailAndUsername(
-      email,
-      username
-    );
+    const { email: sanitizedEmail, username: sanitizedUsername } =
+      prepareEmailAndUsername(email, username);
 
     // Vérifier si l'utilisateur existe déjà
     const user = await prisma.user.findFirst({
@@ -202,7 +203,13 @@ module.exports = {
       }
 
       // Récupérer le token
-      const token = authorizationHeader.split(" ")[1];
+      // const token = authorizationHeader.split(" ")[1];
+      let token;
+      try {
+        token = await getToken(req);
+      } catch (error) {
+        throw new Error("Unauthorized");
+      }
       console.log("token", token);
 
       // Vérification du refresh token
@@ -225,6 +232,7 @@ module.exports = {
         invalidTokenCreated,
         invalidRefreshTokenCreated,
       });
+      console.log("invalidation ok");
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Internal server error" });
@@ -237,7 +245,8 @@ module.exports = {
   updateUser: async (req, res) => {
     try {
       const id = await getUserId(req);
-      const { username, email, password, profile_pic_id } = req.body;
+      const { username, email, newPassword, oldPassword, profile_pic_id } =
+        req.body;
       // Préparer l'email et l'username
       const sanitizedData = prepareEmailAndUsername(email, username);
       const sanitizedEmail = sanitizedData.email;
@@ -252,7 +261,7 @@ module.exports = {
       if (!userToModify) {
         return res.status(400).json({ message: "User not found" });
       }
-      // Vérifier que l'utilisateur est bien activé
+      // Vérifier que l'utilisateur est bien vérifié
       if (userToModify.verified === false) {
         return res.status(400).json({ message: "User not activated" });
       }
@@ -265,8 +274,8 @@ module.exports = {
         return res.status(400).json({ message: "User banned" });
       }
 
-      // Comparer le mot de passe reçu avec le hash en base de données
-      if (!comparePassword(password, userToModify.password)) {
+      // Comparer le mot de passe d'origine reçu avec le hash en base de données
+      if (!comparePassword(oldPassword, userToModify.password)) {
         return res.status(400).json({ message: "Invalid password" });
       }
       // Vérifier que le nouveau nom d'utilisateur n'est pas déjà pris
@@ -295,26 +304,42 @@ module.exports = {
         }
       }
 
-      // Vérifier que le nouveau mot de passe a un format valide
-      if (!checkPasswordFormat(password)) {
+      // Si on a un nouveau mot de passe, vérifier que le nouveau mot de passe a un format valide
+      if (newPassword && !checkPasswordFormat(newPassword)) {
         return res.status(400).json({
           message:
             "Password must contain at least 8 characters, one uppercase, one lowercase and one number",
         });
       }
       // Mettre à jour l'utilisateur avec les nouvelles données (username, email, password)
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const user = await prisma.user.update({
-        where: {
-          id: parseInt(id),
-        },
-        data: {
-          username: sanitizedUsername,
-          email: sanitizedEmail,
-          password: hashedPassword,
-        },
-      });
+      // si l'utilisateur a fourni un nouveau mot de passe, hasher le nouveau mot de passe
+      let user;
+      if (newPassword) {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user = await prisma.user.update({
+          where: {
+            id: parseInt(id),
+          },
+          data: {
+            username: sanitizedUsername,
+            email: sanitizedEmail,
+            password: hashedPassword,
+          },
+        });
+      } else {
+        user = await prisma.user.update({
+          where: {
+            id: parseInt(id),
+          },
+          data: {
+            username: sanitizedUsername,
+            email: sanitizedEmail,
+          },
+        });
+      }
+      if (!user) {
+        return res.status(400).json({ message: "User not updated" });
+      }
       //Si l'utilisateur a fourni un nouveau profile_pic_id, mettre à jour le statut de la nouvelle photo de profil et de l'ancienne
       if (profile_pic_id) {
         const oldProfilePic = await prisma.picture.update({
