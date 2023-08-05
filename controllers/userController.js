@@ -151,7 +151,7 @@ module.exports = {
     }
     // Connecter l'utilisateur et lui renvoyer un token
     const newToken = generateTokenForUser(updatedUser);
-    res.status(200).json({ message: "User activated and logged in", newToken });
+    res.status(200).json({ message: "User activated", newToken });
   },
 
   /**
@@ -203,7 +203,6 @@ module.exports = {
       }
 
       // Récupérer le token
-      // const token = authorizationHeader.split(" ")[1];
       let token;
       try {
         token = await getToken(req);
